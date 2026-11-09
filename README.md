@@ -1,6 +1,8 @@
 #   Bep Viet - web POS and Thermal Receipt Printing System
 
+
 A lightweight, zero-dependency Point of Sale (POS) web application built for "Bep Viet" restaurant in Bucharest. Designed to handle real-time table management, bilingual kitchen ticket printing, and daily revenue tracking.
+
 
 ## Key Features
 -> **Multi-Table State Management:** Tracks 11 dine-in tables ('B1'–'B11') and 5 takeaway slots ('MV1'–'MV5') with persistent state via `localStorage` and automatic daily reset at midnight.
