@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- BẮT ĐẦU THẺ STYLE -->
+    <style>
+        /* 1. RESET & FONT CHỮ HIỆN ĐẠI */
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 2. TỐI ƯU MÀU NỀN VÀ CHỮ TOÀN BỘ TRANG */
+        body {
+            background-color: #f4f6f9;
+            color: #2c3e50;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        /* 3. LÀM ĐẸP TIÊU ĐỀ */
+        h2, h3 {
+            margin-bottom: 10px;
+            color: #1e293b;
+        }
+
+        /* 4. LÀM ĐẸP KHU VỰC GHI CHÚ */
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-top: 5px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #1877f2;
+        }
+    </style>
+
+
+    <!-- Chúng ta cần một chút CSS để vẽ 16 cái bàn thành các ô vuông xếp cạnh nhau cho dễ bấm. 
+    Bạn hãy cuộn lên phần trên cùng của file, ngay dưới thẻ <title>, thêm thẻ <style> này vào-->
+    <style>
+        /* CSS cho khu vực danh sách bàn */
+        .table-grid {
+            display: grid;
+            grid-template-columns: repeat(4,1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .table-button {
+            padding: 15px 5px;
+            text-align: center;
+            font-weight: bold;
+            background: #f0f2f5;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* Bàn đang được chọn (Màu xanh) */
+        .table-button.active {border-color: #1877f2; background: #e7f3ff; color: #1877f2; }
+        /* Bàn đang có khách (Màu cam) */
+        .table-button.occupied {border-color: #f59e0b;; background: #fffbeb; color: #d97706; }
+    </style>
+    <style>
+        .tip-button{
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background: #f0f2f5;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .tip-button.active {
+            background: #1877f2;
+            color: white;
+            border-color: #1877f2;
+        }
+    </style>
+    <!-- KẾT THÚC THẺ STYLE -->
+    <title>SỔ ORDER BẾP VIỆT</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/rsvp@4/dist/rsvp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2/qz-tray.min.js"></script>
+</head>
+<body>
+    <!-- 1. KHU VỰC LƯỚI BÀN (Sẽ được JS tự động vẽ) -->
+    <h2>Danh sách Bàn</h2>
+    <!-- NÚT XEM BÁO CÁO -->
+    <button onclick="show_summary()" style="margin-bottom: 15px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+         Xem Báo Cáo Doanh Thu
+    </button>
+
+    <div id="table-grid" class="table-grid"></div>
+    <!-- Khung bao bọc toàn bộ thông tin của Bàn 1 -->
+    <div id="ban-1" class="table-card">
+        <!-- Đổi tiêu đề cố định thành ID để thay đổi tên bàn động -->
+        <h2 id="active-table-title" style="color: #1877f2;">Đang chọn: Bàn 1</h2>
+        <!-- Khu vực các nút bấm chọn món -->
+        <div class="menu-buttons">
+            <!-- Khu vực các nút bấm chọn món (Sẽ được JavaScript tự động điền vào đây) -->
+            <div id="menu-container"></div>
+        </div>
+    </div>
+
+    <!-- Khu vực hiển thị các món khách đã click chọn -->
+    <h3 style="margin-top: 20px;">Khách đã order:</h3>
+    <ul id="order-list" style="list-style-type: none ;padding: 0; margin-bottom: 15px; color: #d97706; font-weight: bold;">
+        <!-- Ban đầu chưa có món nào, JS sẽ tự động bơm chữ vào đây -->
+    </ul>
+
+    <!-- Ô NHẬP SỐ NGƯỜI (PAX) -->
+    <input type="number" id="pax-input" placeholder="Số người (VD: 4)" 
+    style="width: 100%; padding: 10px; margin-bottom: 8px; border-radius: 5px; 
+    border: 1px solid #ccc;">
+    
+    <!-- Khu vực ghi chú -->
+    <p>Ghi chú của khách:</p>
+    <textarea id="note-input" rows="3" placeholder="VD: Không hành, ít bánh..."></textarea>
+    <!-- Khu vực tổng tiền (Thêm id="total-price")-->
+    <h2 id="total-price" style="color: #e53e3e; margin-top: 15px;">Tổng: 0 lei </h2>
+    
+    <!-- NÚT IN ĐƠN-->
+    <button onclick="print_ticket()" style="width: 100%; padding: 12px; background: #f59e0b;
+     color: white; border: none; border-radius: 8px; font-size: 1.1rem; 
+     font-weight: bold; cursor: pointer; margin-top: 15px;
+      margin-bottom: 10px;">IN ĐƠN</button>
+
+
+    <!-- KHU VỰC TIP -->
+    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc;">
+        <p style="margin-bottom: 8px; font-weight: bold; color: #555;">Tiền Tip :</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="tip-button-container">
+            <button onclick="apply_tip('10')" class="tip-button" id="tip-10">10%</button>
+            <button onclick="apply_tip('12')" class="tip-button" id="tip-12">12%</button>
+            <button onclick="apply_tip('15')" class="tip-button" id="tip-15">15%</button>
+            <button onclick="apply_tip('custom')" class="tip-button" id="tip-custom">Nhập Tay</button>
+        </div>
+        <div id="custom-tip-container" style="display: none; margin-top: 10px;">
+            <input type="number" id="custom-tip-input" placeholder="Nhập số tiền(lei)" oninput="apply_tip('custom_input')"
+            style="padding: 10px; width: 100%; border-radius: 5px; border: 1px solid #ccc;">
+        </div>
+    </div>
+
+    <!-- HAI NÚT THANH TOÁN MỚI -->
+    <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button onclick="checkout('Cash')" style="flex: 1;padding: 12px; background: #10b981; 
+        color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer;">cash</button>
+        <button onclick="checkout('Card')" style="flex: 1; padding: 12px; background: #8b5cf6; 
+        color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer;">card</button>
+    </div>
+
+    <!-- KHU VỰC IN LỊCH SỬ CHỐT ĐƠN (Nằm ở dưới cùng) -->
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 3px solid #ccc; padding-bottom: 50px;">
+        <h2>Lịch sử đơn hôm nay</h2>
+        <!-- Cái hộp này sẽ chứa các dòng chữ in ra -->
+        <div id="simple-log-box" style="background: white; padding: 15px; border-radius: 8px;
+         border: 1px solid #ddd; min-height: 100px; font-family: monospace; font-size: 1rem; color: #333;">
+            Chưa có đơn nào.
+        </div>
+    </div>
+
+
+<script>
+    const MENU = [
+        {
+            categoryName:"Món Khai Vị",
+            items:[
+                {id: 'kv1', name: 'Gỏi tôm-thịt',en_name: 'Summer rolls with shrimp-meat', price: 33},
+                {id: 'kv2', name: 'Gỏi chay' ,en_name: 'Vegan summer rolls' , price: 26}, 
+                {id: 'kv3', name: 'Gỏi bò' ,en_name: 'Beef salad', price: 27},
+                {id: 'kv4', name: 'Gỏi gà',en_name: 'Chicken salad' , price: 26},
+                {id: 'kv5', name: 'Nem rán thịt',en_name: 'Fried Spring rolls with meat', price: 26},
+                {id: 'kv6', name: 'Nem rán chay',en_name: 'Fried vegan Spring rolls', price: 25}
+            ]
+        },
+        {
+            categoryName:"Món Soup",
+            items:[
+                {id: 's1', name: 'Phở bò to', en_name: 'Beef Pho (Large)', price: 39},
+                {id: 's2', name: 'Phở bò nhỏ', en_name: 'Beef Pho (Small)', price: 29},
+                {id: 's3', name: 'Phở gà to', en_name: 'Chicken Pho (Large)', price: 35},
+                {id: 's4', name: 'Phở gà nhỏ', en_name: 'Chicken Pho (Small)', price: 28},
+                {id: 's5', name: 'Phở sốt vang to', en_name: 'Beef Pho with red wine sauce(Large)', price: 39},
+                {id: 's6', name: 'Phở sốt vang nhỏ', en_name: 'Beef Pho with red wine sauce(Small)', price: 29},
+                {id: 's7', name: 'Phở đậu phụ to', en_name: 'Tofu Pho (Large)', price: 32},
+                {id: 's8', name: 'Phở đậu phụ nhỏ', en_name: 'Tofu Pho (Small)', price: 23},
+                {id: 's9', name: 'soup miso', en_name: 'Miso soup', price: 23}
+            ]
+        },
+        {
+            categoryName: "Món Bò",
+            items: [
+                { id: 'b1', name: 'Bún xào bò', en_name: 'stir-fried Beef Noodles', price: 36 },
+                { id: 'b2', name: 'Bò lúc lắc', en_name: 'Beef Luc Lac', price: 38 },
+                { id: 'b3', name: 'Curry bò', en_name: 'Beef curry', price: 39 },
+                { id: 'b4', name: 'Cơm chiên bò', en_name: 'Beef fried rice', price: 35 }
+            ]
+        },
+        {
+            categoryName: "Món Gà",
+            items: [
+                { id: 'g1', name: 'Bún xào gà', en_name: 'stir-fried Chicken noodles', price: 33 },
+                { id: 'g2', name: 'Gà xào nấm mèo', en_name: 'Chiken with mushrooms', price: 34 },
+                { id: 'g3', name: 'Gà xào sả ớt', en_name: 'Chicken with lemongrass', price: 34 },
+                { id: 'g4', name: 'Cơm chiên gà', en_name: 'Chicken fried rice', price: 30 },
+                { id: 'g5', name: 'Gà chiên bếp việt', en_name: 'Chicken snitel', price: 36 }
+            ]
+        },
+        {
+            categoryName:"Món đặc biệt",
+            items:[
+                {id: 'db1', name: 'Cơm tấm', en_name: 'Rice with grilled pock neck', price: 41},
+                {id: 'db2', name: 'Bánh mì', en_name: 'Banh Mi', price: 30},
+                {id: 'db3', name: 'Bún chả', en_name: 'grilled pork with rice noodles', price: 40},
+                {id: 'db4', name: 'Bún xào ức vịt', en_name: 'Noodles with duck breast', price: 51},
+                {id: 'db5', name: 'Bún xào đùi vịt', en_name: 'Noodles with duck thigh', price: 51},
+                {id: 'db6', name: 'Bún bò nam bộ', en_name: 'Beef salad with rice noodles', price: 40},
+                {id: 'db7', name: 'Cơm chiên ức vịt', en_name: 'fried rice with duck breast', price: 51},
+                {id: 'db8', name: 'Cơm chiên đùi vịt', en_name: 'Fried rice with duck thigh', price: 51},
+                {id: 'db9', name: 'xiên nướng', en_name: 'pork skewers', price: 38},
+                {id: 'db10', name: 'Bún nem thịt', en_name: 'fried meat spring rolls with noodles', price: 37},
+                {id: 'db11', name: 'Cơm thịt lợn kho trứng', en_name: 'rice with caramelized pork', price: 40}
+            ]
+        },
+        {
+            categoryName:"Món hải sản",
+            items:[
+                {id: 'hs1', name: 'Bún xào tôm', en_name: 'Noodles with shrimp', price: 38},
+                {id: 'hs2', name: 'Cơm rang tôm', en_name: 'Fried rice with shrimp', price: 38},
+                {id: 'hs3', name: 'Tôm sốt chua ngọt', en_name: 'Sweet & sour shrimp', price: 38},
+                {id: 'hs4', name: 'Tôm chiên', en_name: 'tempura shrimp', price: 35}
+            ]
+        },
+        {
+            categoryName:"Món chay",
+            items:[
+                {id: 'c1', name: 'Đậu phụ sốt cà chua', en_name: 'tofu with tomato sauce', price: 28},
+                {id: 'c2', name: 'Đậu phụ sốt xì dầu', en_name: 'tofu with soy sauce', price: 28},
+                {id: 'c3', name: 'Cơm rang rau', en_name: 'vegetables fried rice', price: 23},
+                {id: 'c4', name: 'Bún xào rau', en_name: 'vegetable noodles', price: 27},
+                {id: 'c5', name: 'Bún nem chay', en_name: 'fried vegan spring roll with rice noodles', price: 35},
+                {id: 'c6', name: 'Rau xào xì dầu', en_name: 'vegetable with soy sauce', price: 28}
+            ]
+        },
+        {
+            categoryName:"Salads",
+            items:[
+                {id: 'sal1', name: 'Salad dưa chuột-giá đỗ', en_name: 'cucumber and bean sprout salad', price: 20},
+                {id: 'sal2', name: 'Salad trộn', en_name: 'Spring salad', price: 19},
+                {id: 'sal3', name: 'Salad rong biển', en_name: 'seaweed salad', price: 19},
+            ]
+        },
+        {
+            categoryName:"Deserts",
+            items:[
+                {id: 'de1', name: 'Bánh vừng', en_name: 'sasame balls', price: 20},
+                {id: 'de2', name: 'Bánh chuối', en_name: 'Banana cake', price: 20}
+            ]
+        },
+        {
+            categoryName:"Garnituri",
+            items:[
+                {id: 'gar1', name: 'Cơm rang trứng', en_name: 'Fried rice with eggs', price: 23},
+                {id: 'gar2', name: 'Cơm trắng', en_name: 'plain rice', price: 8},
+                {id: 'gar3', name: 'Bánh mì không', en_name: 'Baguette', price: 8},
+                {id: 'gar4', name: 'Khoai Tây chiên', en_name: 'French fried', price: 10},
+            ]
+        },
+        {
+            categoryName:"Đồ uống không cồn",
+            items:[
+                {id: 'kc1', name: 'Nước lọc ga/không ga', price: 10},
+                {id: 'kc2', name: 'pepsi/mirinda/7up', price: 10},
+                {id: 'kc3', name: 'Prigat đào/dâu/cam', price: 11},
+                {id: 'kc4', name: 'Lipton chanh', price: 11}
+            ]
+
+        },
+        {
+            categoryName:"Home-made drinks",
+            items:[
+                {id: 'hm1', name: 'Cà phê sữa đá/nóng', price: 17},
+                {id: 'hm2', name: 'Cà phê muối', price: 21},
+                {id: 'hm3', name: 'Nước chanh', price: 19},
+                {id: 'hm4', name: 'Nước chanh sả', price: 23},
+                {id: 'hm5', name: 'Nước cam', price: 21},
+                {id: 'hm6', name: 'Trà đào', price: 21},
+                {id: 'hm7', name: 'Trà dâu', price: 21},
+                {id: 'hm8', name: 'Trà sen', price: 8},
+                {id: 'hm9', name: 'Nước dừa', price: 15}
+            ]
+        },
+        {
+            categoryName:"Vin(chai)",
+            items:[
+                {id: 'vc1', name: 'Vin purcari alba', price: 75},
+                {id: 'vc2', name: 'Vin purcari rosu', price: 75},
+                {id: 'vc3', name: 'Vin purcari rose', price: 75},
+            ]
+        },
+        {
+            categoryName:"Vin(ly)",
+            items:[
+                {id: 'vl1', name: 'Vin purcari alba', price: 15},
+                {id: 'vl2', name: 'Vin purcari rosu', price: 15},
+                {id: 'vl3', name: 'Vin purcari rose', price: 12},
+            ]
+        },
+        {
+            categoryName:"Beers",
+            items:[
+                {id: 'be1', name: 'SÀI GÒN', price: 19},
+                {id: 'be2', name: 'Carlsberg', price: 14},
+                {id: 'be3', name: 'Tuborg draft', price: 13},
+                {id: 'be4', name: 'Tuborg sticla/doza', price: 13},
+                {id: 'be5', name: 'Tuborg fara alcool', price: 12},
+                {id: 'be6', name: 'Bucur đỏ(blonda)', price: 13},
+                {id: 'be7', name: 'Bucur đen(bruna)', price: 14}
+            ]
+        }
+    ];
+
+    // Hàm tự động vẽ Menu ra màn hình
+    function rendermenu()
+    {
+        // 1. Tìm cái "hộp rỗng" trên HTML thông qua ID
+        const container = document.getElementById('menu-container');
+
+        // Biến này sẽ chứa toàn bộ mã HTML được tạo ra tự động
+        let html_string='';
+
+        // 2. Vòng lặp ngoài: Duyệt qua từng danh mục (Món Khai Vị, Soup...)
+        MENU.forEach(category => {
+            // In ra tên danh mục (in đậm)
+            html_string += `<h4 style="margin-top: 15px;color: #1877f2;">${category.categoryName}</h4>`;
+            html_string += `<div class="menu-buttons" style="display: flex; flex-wrap: wrap; gap: 8px;">`;
+
+            // 3. Vòng lặp trong: Duyệt qua từng món ăn trong danh mục đó
+            category.items.forEach(item => {
+                //Chúng ta sẽ gắn thêm thuộc tính onclick="addToOrder('${item.id}')" vào đó. Khi bạn click, nút này sẽ gửi cái ID của món ăn (ví dụ: b1, kv2) vào hàm xử lý
+                html_string+=`<button onclick="add_to_order('${item.id}')" style="padding: 8px; border: 1px solid #ccc; border-radius:
+                 5px; cursor: pointer;"> + ${item.name} (${item.price} lei)</button>`;
+            });
+            html_string += `</div>`;
+        });
+
+        // 4. Bơm toàn bộ mã HTML vừa tạo vào trong cái hộp rỗng
+        container.innerHTML = html_string;
+    }
+
+
+    // ==========================================
+    // 1. XỬ LÝ LƯU TRỮ VÀ TỰ ĐỘNG RESET QUA NGÀY MỚI
+    // ==========================================
+
+    let today = new Date().toLocaleDateString('ro-RO'); // Lấy ngày hôm nay (VD: 04/08/2026)
+    let saved_date=localStorage.getItem('pos_date');
+
+    // Nếu qua ngày mới (sau 12h đêm), dọn dẹp sạch sẽ bộ nhớ cũ
+    if(saved_date !==today)
+    {
+        localStorage.removeItem('pos_tables');
+        localStorage.removeItem('pos_history');
+        localStorage.removeItem('pos_log_html');
+        localStorage.setItem('pos_date', today) // Lưu mốc ngày mới
+    }
+
+    // 1. KHỞI TẠO MẢNG 16 BÀN TRONG BỘ NHỚ
+    let default_tables = [];
+    // Vòng lặp tạo 11 bàn tại quán
+    for(let i=1; i<=11; i++) default_tables.push({ id: `B${i}`, name: `Bàn ${i}`, order: [] });
+    // Vòng lặp tạo 5 bàn mang về
+    for(let i=1; i<=5; i++) default_tables.push({ id: `MV${i}`, name: `Mang về ${i}`, order: [] });
+
+    // ĐỌC DỮ LIỆU TỪ Ổ CỨNG: Nếu có thì tải lên, nếu trống thì xài cái mặc định
+    let tables = JSON.parse(localStorage.getItem('pos_tables')) || default_tables;
+    let order_history = JSON.parse(localStorage.getItem('pos_history')) || [];
+    // "Con trỏ" lưu vị trí bàn đang thao tác. Mặc định là Bàn 1.
+    let active_table_id = 'B1';
+
+    // Khôi phục lại lịch sử dòng log (nếu có)
+    // Bơm lại chữ vào hộp log ngay khi tải trang
+    window.onload = function()
+    {
+        let saved_log = localStorage.getItem('pos_log_html');
+        if(saved_log)
+        {
+            document.getElementById('simple-log-box').innerHTML = saved_log;
+        }
+    }
+
+    // ==========================================
+    // HÀM LƯU Ổ CỨNG (Gọi ở cuối các hàm add_to_order, decrease_item, checkout)
+    // ==========================================
+    function save_data()
+    {
+        localStorage.setItem('pos_tables', JSON.stringify(tables));
+        localStorage.setItem('pos_history', JSON.stringify(order_history));
+        //Lưu luôn cả cục HTML của cái hộp log
+        localStorage.setItem('pos_log_html', document.getElementById('simple-log-box').innerHTML);
+    }
+    // 2. HÀM VẼ 16 CÁI BÀN LÊN MÀN HÌNH
+    function render_tables()
+    {
+        const grid = document.getElementById('table-grid');
+        let html= '';
+
+        tables.forEach(table =>{
+            let is_active = table.id === active_table_id ? 'active' : '';
+            let is_occupied = table.order.length > 0 ? 'occupied' : '';
+
+            // Khi bấm vào 1 ô bàn, nó sẽ gọi hàm switch_table
+            html+=`<div class="table-button ${is_active} ${is_occupied}" onclick="switch_table('${table.id}')">${table.name}</div>`;
+
+        });
+        grid.innerHTML = html;
+    }
+    
+    // 3. HÀM CHUYỂN ĐỔI BÀN
+    function switch_table(table_id)
+    {
+        active_table_id=table_id; // Chuyển con trỏ sang bàn mới
+        
+        // Đổi cái tiêu đề <h2> để người dùng biết
+        let current_table=tables.find(t => t.id === active_table_id);
+        document.getElementById('active-table-title').innerText = `Đang chọn: ${current_table.name}`;
+
+        render_tables(); // Cập nhật lại màu sắc của lưới bàn
+        render_order(); // Tải lại giỏ hàng của bàn mới
+    }
+    // Hàm 1: Được gọi mỗi khi bạn bấm 1 nút món ăn
+    function add_to_order(item_id)
+    {
+        // Bước A: Quét toàn bộ MENU để tìm xem cái ID này tương ứng với món gì, giá bao nhiêu
+        let selected_item=null;
+        MENU.forEach(category => {
+            let match= category.items.find(i => i.id === item_id);
+            if(match)   selected_item=match;
+        });
+
+        if(!selected_item) return; // Bỏ qua nếu lỗi không tìm thấy ID
+        
+        // TÌM CÁI BÀN ĐANG ĐƯỢC CHỌN
+        let current_table=tables.find(t => t.id ===active_table_id);
+        
+        // Thao tác với mảng 'order' của riêng bàn đó
+        //Kiểm tra xem món này đã được khách gọi trước đó chưa?
+        let existing_item = current_table.order.find(i => i.id ===item_id);
+        if(existing_item)
+        {
+            existing_item.quantity+=1; // Nếu gọi rồi thì tăng số lượng lên 2, 3...
+        }
+        else
+        {
+            // Nếu chưa gọi, tống nó vào mảng currentOrder với số lượng (qty) là 1
+            current_table.order.push({id: selected_item.id, name: selected_item.name, price: selected_item.price, quantity: 1});
+        }
+
+        // Bước C: Dữ liệu đã thay đổi, ra lệnh vẽ lại "Giỏ hàng" và Tính tiền
+        save_data();
+        render_order();
+        render_tables(); // Cập nhật để bàn tự đổi sang màu cam (Occupied)
+    }
+
+    // Hàm 3: Xử lý khi bấm nút trừ (-)
+    //CẬP NHẬT HÀM XÓA MÓN
+    function decrease_item(item_id)
+    {
+        let current_table=tables.find(t => t.id === active_table_id);
+        // Tìm "vị trí" (index) của món ăn này trong mảng current_table.order
+        let index = current_table.order.findIndex(i => i.id == item_id);
+
+        if(index !== -1)
+        {
+            // Giảm số lượng đi 1
+            current_table.order[index].quantity-=1;
+
+            // Nếu số lượng tụt xuống 0, chúng ta phải "nhổ" nó ra khỏi mảng
+            if(current_table.order[index].quantity === 0)
+            {
+                // Hàm splice(index, 1) nghĩa là: "Từ vị trí index, xóa đi 1 phần tử"
+                current_table.order.splice(index,1);
+            }
+        }
+        // Dữ liệu đã thay đổi, gọi hàm vẽ lại để cập nhật màn hình
+        save_data();
+        render_order();
+        render_tables(); // Nếu xóa hết món thì bàn tự mất màu cam
+    }
+
+    // HÀM MỚI: TĂNG SỐ LƯỢNG MÓN TRỰC TIẾP TRONG GIỎ HÀNG
+    function increase_item(item_id)
+    {
+        let current_table=tables.find(t => t.id === active_table_id);
+
+        // Tìm xem món này nằm ở đâu trong giỏ hàng hiện tại
+        let existing_item = current_table.order.find(i => i.id === item_id);
+
+        if(existing_item)
+        {
+            existing_item.quantity+=1;
+        }
+
+        // Dữ liệu đã thay đổi, gọi lệnh vẽ lại màn hình và lưu ổ cứng
+        render_order();
+        render_tables();
+        save_data();
+    }
+    // Hàm 2: Vẽ lại danh sách món đã gọi và tính Tổng tiền
+    function render_order()
+    {
+        const order_list=document.getElementById('order-list');
+        const total_price=document.getElementById('total-price');
+
+        // Lấy dữ liệu từ bàn đang được chọn
+        let current_table = tables.find(t => t.id === active_table_id);
+
+        let html='';
+        let sum=0;
+
+        // Duyệt qua mảng các món đang gọi
+        current_table.order.forEach(item => {
+            let subtotal = item.price*item.quantity; // Thành tiền = Giá x Số lượng
+            sum+=subtotal; // Cộng dồn vào Tổng
+
+            // Tạo HTML hiển thị món đó ra màn hình (Có thêm nút trừ màu đỏ và cộng màu xanh)
+            html+= `<li style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #ccc;"><button onclick="decrease_item('${item.id}')" 
+                style="background:#ff4d4f; color:white; border:none; padding:2px 8px; border-radius:3px; cursor:pointer; margin-right: 8px; font-weight: bold;">-</button>
+                
+                <!-- NÚT CỘNG MỚI ĐƯỢC THÊM VÀO ĐÂY -->
+                <button onclick="increase_item('${item.id}')"
+                    style="background:#10b981; color:white; border:none; padding:2px 8px; border-radius:3px; cursor:pointer; margin-right: 10px; font-weight: bold;">+</button>
+                ${item.name} 
+                <span style="color: black;">x</span> <b>${item.quantity}</b> = ${subtotal} lei 
+                </li>`;
+        });
+
+        // -- TÍNH TOÁN TIP --
+        let tip_amount = 0;
+        if(current_table.tip_type === '10') tip_amount = sum*0.10;
+        else if(current_table.tip_type==='12') tip_amount=sum*0.12;
+        else if(current_table.tip_type==='15') tip_amount=sum*0.15;
+        else if(current_table.tip_type === 'custom') tip_amount=current_table.custom_tip_amount || 0;
+
+        let total_bill=sum+tip_amount;
+
+        // Hiển thị tổng tiền mới
+        document.getElementById('total-price').innerHTML = 
+        `Tổng: ${total_bill.toFixed(2)} lei
+        <br>
+        <span style="font-size: 1rem; color: #666; font-weight: normal;">
+            (Đồ ăn: ${sum} lei | Tip: ${tip_amount.toFixed(2)} lei)
+        </span>`
+        
+        // -- ĐỔI MÀU NÚT TIP THEO BÀN ĐANG CHỌN --
+        /*
+        Ví dụ:
+            Bàn 1 chọn tip 10% → nút 10% sáng lên.
+            Bàn 2 chọn 15% → nút 15% sáng lên.
+            Nếu chọn custom → hiện ô nhập số tiền tip.
+            Khi chuyển sang bàn khác → giao diện tip cũng thay đổi theo bàn đó.*/
+
+        //Xóa trạng thái active của tất cả nút tip
+        document.querySelectorAll('.tip-button').forEach(btn => btn.classList.remove('active'));
+        //querySelectorAll('.tip-button') sẽ lấy cả 4 nút và Xóa class active khỏi nút.
+
+        //Ẩn ô nhập tip custom || display: none nghĩa là ẩn phần tử khỏi giao diện
+        document.getElementById('custom-tip-container').style.display = 'none';
+
+        if(current_table.tip_type)
+        {
+            let active_button=document.getElementById(`tip-${current_table.tip_type}`);
+            if(active_button)
+            {
+                active_button.classList.add('active');
+            }
+
+            if(current_table.tip_type === 'custom')
+            {
+                //Hiện ô nhập custom
+                document.getElementById('custom-tip-container').style.display = 'block';
+                //Đưa số tip cũ vào input
+                document.getElementById('custom-tip-input').value = current_table.custom_tip_amount || '';
+            }
+        }
+
+        // Cập nhật lên Giao diện
+        if(current_table.order.length ===0)
+        {
+            order_list.innerHTML =  `<li style="color: #999;">Chưa có món nào.</li>`;       
+        }
+        else
+        {
+            order_list.innerHTML = html;
+        }
+    }
+
+    function apply_tip(type)
+    {
+        let current_table = tables.find(t => t.id===active_table_id);
+        if(!current_table) return;
+
+        // Xử lý khi khách nhập số tiền tip tùy chọn
+        if(type==='custom_input')
+        {
+            current_table.tip_type='custom';
+            current_table.custom_tip_amount=parseFloat(document.getElementById('custom-tip-input').value) || 0;
+        }
+        else {
+            // Nếu bấm lại vào nút đang chọn thì Hủy tip
+            if(current_table.tip_type === type) {
+                current_table.tip_type=null;
+            }
+            else {
+                current_table.tip_type=type; // Cập nhật mức tip mới
+            }
+        }
+        render_order(); // Ra lệnh tính lại tiền và vẽ lại giao diện
+        save_data();
+    }
+
+    // HÀM 1: BẮT SỰ KIỆN KHI BẤM NÚT IN BẾP
+    function print_ticket()
+    {
+        let current_table=tables.find(t => t.id===active_table_id);
+        if(!current_table || current_table.order.length ===0)
+        {
+            return;
+        }
+
+        // Lấy dữ liệu Số lượng khách
+        let pax_box = document.getElementById('pax-input');
+        let pax_number = pax_box ? pax_box.value : "";
+
+        if(!qz.websocket.isActive())
+        {
+            qz.websocket.connect({host: '192.168.1.114'}).then(() => {
+                send_data(current_table.name,current_table.order, pax_number);
+            }).catch(err => alert("Chưa bật QZ Tray trên máy tính! Lỗi: " + err));
+        }
+        else
+        {
+            send_data(current_table.name, current_table.order, pax_number);
+        }
+    }
+
+    // HÀM MỚI: Tự động loại bỏ dấu Tiếng Việt để máy in nhiệt đọc được
+    function remove_accents(str) {
+        if (!str) return "";
+        return str.normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/đ/g, 'd')
+                  .replace(/Đ/g, 'D');
+    }
+
+    // HÀM 2: DỊCH DỮ LIỆU SANG MÃ MÁY IN (SONG NGỮ)
+    function send_data(table_name,order_items,pax_number)
+    {
+        let printer_name = "NOTE"; 
+
+        qz.printers.find(printer_name).then((found) => {
+            let config = qz.configs.create(found);
+
+            const ESC = '\x1B';
+            const INIT = ESC + '@';
+            const ALIGN_LEFT = ESC + 'a' + '\x00';
+            const ALIGN_CENTER = ESC + 'a' + '\x01';
+            const NORMAL = ESC + '!' + '\x00';
+            const DOUBLE_HEIGHT = ESC + '!' + '\x10';
+            
+            let printData = [
+                INIT,          
+                ALIGN_CENTER, 
+                DOUBLE_HEIGHT, 
+                '--- KITCHEN TICKET ---\n',
+                NORMAL, 
+                ALIGN_LEFT, 
+                `Ban (Table): ${table_name}\n`,
+            ];
+
+            // Nếu có nhập số người thì in ra
+            if(pax_number && pax_number !== "")
+            {
+                printData.push("Khach:" + pax_number + "nguoi\n");
+            }
+
+            printData.push('--------------------------\n');
+
+            // Quét từng món và DỊCH SONG NGỮ
+            order_items.forEach(item => {
+                let english_name = "";
+
+                // Thuật toán: Tìm món gốc trong MENU để lấy en_name
+                MENU.forEach(category => {
+                    let found_item= category.items.find(i => i.id === item.id);
+                    if(found_item && found_item.en_name)
+                    {
+                        english_name = found_item.en_name;
+                    }
+                });
+
+                // Ghép chữ: "Phở bò / Beef Pho"
+                let display_name = item.name;
+                if(english_name !== "")
+                {
+                    display_name = `${item.name} / ${english_name}`;
+                }
+                
+                // QUAN TRỌNG: Xóa dấu Tiếng Việt trước khi đẩy xuống máy in
+                display_name = remove_accents(display_name);
+                printData.push('\x1B' + '\x21' + '\x08'); // phông chữ tiêu chuẩn + in đậm 
+                printData.push(`+ ${item.quantity} x ${display_name}\n`);
+                // TẠO KHOẢNG CÁCH: Thêm 1 dòng trống sau mỗi món ăn để không bị dính vào nhau
+                printData.push('\n');
+
+                printData.push('\x1B' + '\x21' + '\x00'); // Chữ bình thường,tắt in đậm
+            });
+
+            printData.push('--------------------------\n');
+            printData.push('\n\n\n\n'); 
+            printData.push('\x1D' + '\x56' + '\x00'); // Cắt giấy
+
+            return qz.print(config, printData);
+        }).then(() => {
+            alert(`Đã in thành công cho ${table_name}!`);
+        }).catch((e) => {
+            alert("Lỗi máy in:" + e);
+        });
+    }
+    function checkout(checkout_med)
+    {
+        let current_table=tables.find(t => t.id==active_table_id);
+        if(current_table.order.length ===0)
+        {
+            alert(`Cảnh báo: ${current_table.name} đang trống, không thể không có đơn để chốt!._.`);
+            return;
+        }
+
+        let sum =0;
+        current_table.order.forEach(item =>{
+            sum+=item.price*item.quantity;
+        });
+        
+        let tip_amount=0;
+        if(current_table.tip_type === '10') tip_amount = sum*0.10;
+        else if(current_table.tip_type==='12') tip_amount=sum*0.12;
+        else if(current_table.tip_type==='15') tip_amount=sum*0.15;
+        else if(current_table.tip_type === 'custom') tip_amount=current_table.custom_tip_amount || 0;
+
+        let total_bill=sum+tip_amount;
+
+        //// Thuật toán chia Tip thực nhận (Cash = 100%, Card = 70%)
+        let staff_tip=tip_amount;
+        if(checkout_med === 'Card')
+        {
+            staff_tip = tip_amount*0.70;
+        }
+        // ----- ĐOẠN CODE MỚI: LƯU VÀO LỊCH SỬ -----
+        // Tạo một object chứa thông tin đơn hàng và đẩy vào mảng order_history
+        order_history.push({table_name: current_table.name,total_money: sum, pay_method: checkout_med, time: new Date().toLocaleTimeString()});
+        
+        // 2. IN LOG RA MÀN HÌNH (Giao diện)
+        const log_box = document.getElementById('simple-log-box');
+        
+        // Xóa chữ "Chưa có đơn nào" ở lần đầu tiên
+        if (log_box.innerText.trim() === "Chưa có đơn nào.") log_box.innerHTML = "";
+
+        // Lấy giờ phút hiện tại
+        let time_now = new Date().toLocaleTimeString('ro-Ro', {hour: '2-digit', minute:'2-digit'});
+
+        // Tạo chuỗi HTML in ra thông tin đơn. VD: [18:30] Bàn 1 - Thu cash: 35 lei
+        let log_line = `<div style="padding: 10px 0; border-bottom: 1px dashed #eee;">
+                            [${time_now}] <b>${current_table.name}</b> - Hình thức: ${checkout_med} - Thu: <b style="color: #e53e3e;">${total_bill.toFixed(2)} lei</b>
+                            <br><span style="font-size: 0.9em; color: #10b981;">
+                                (Đồ ăn: ${sum} lei | Tip thực nv: ${staff_tip.toFixed(2)} lei)</span>
+                        </div>`;
+
+        // Bơm dòng chữ mới lên trên cùng của hộp
+        log_box.innerHTML = log_line + log_box.innerHTML;
+
+
+        // In ra thông báo chốt đơn kèm theo phương thức Tiền mặt hay Thẻ
+        alert(`Đã chốt đơn ${current_table.name} thành công!\nThu về: ${sum} lei bằng ${checkout_med}`);
+
+        // Giải phóng bàn
+        current_table.order=[];
+
+        //// (Tùy chọn) Xóa luôn chữ trong ô ghi chú nếu có
+        document.getElementById('note-input').value='';
+        //ô số người cũng được reset sạch sẽ đón lượt khách mới
+        document.getElementById('pax-input').value = '';
+        save_data();
+        render_order();
+        render_tables();
+    }
+
+    // KHỞI ĐỘNG HỆ THỐNG
+    rendermenu();
+    render_tables();
+    // Gọi hàm render_order() lần đầu tiên để nó hiện chữ "Chưa có món nào."
+    render_order();
+
+    //// 8. HÀM TÍNH TOÁN VÀ HIỂN THỊ DOANH THU
+    function show_summary() 
+    {
+        let total_cash = 0;
+        let total_card = 0;
+        let bill_count = order_history.length;
+
+        // Quẹt qua toàn bộ lịch sử để cộng tiền
+        order_history.forEach(log => {
+            if(log.pay_method === 'Cash')
+            {
+                total_cash+=log.total_money;
+            }
+            else if(log.pay_method === 'Card')
+            {
+                total_card+=log.total_money;
+            }
+        });
+
+        alert(`TỔNG KẾT DOANH THU TRONG NGÀY\n\n` +
+              `Tổng số đơn đã chốt: ${bill_count} đơn\n` +
+              `Tiền mặt: ${total_cash} lei\n` +
+              `Quẹt thẻ: ${total_card} lei\n` +
+              `TỔNG DOANH THU: ${total_cash + total_card} lei`);
+    }
+</script>
+</body>
+</html>
